@@ -811,5 +811,5 @@
 		throw new Error( error_message );
 		return null;
 	};
-}( 'dialog', 'bryant', typeof window === 'undefined' ? this : window )); /* call Òanonymous ÄnÓ and pass in the ÒwindowÓ object */
+}( 'dialog', window, typeof window === 'undefined' ? this : window )); /* call Òanonymous ÄnÓ and pass in the ÒwindowÓ object */
 
