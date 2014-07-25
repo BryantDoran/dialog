@@ -8,6 +8,10 @@
 	};	
 }( 'bryant', typeof window === 'undefined' ? this : window ) ); /* call Òanonymous ÄnÓ and pass in the ÒwindowÓ object */
 
+/*  Än( ÒnamespaceÓ, ÒglobalÓ )
+ * namespace String: to call, attached to foundation
+ * foundation object: the object to append
+ */
 ( function( namespace, foundation, global ){ 
 	var collection = namespace + 's',
 			foundation_name = foundation,
@@ -40,24 +44,23 @@
 						about: {
 							author: 'Bryant Fusco',
 							version: 1,
-							subversion: 0,
+							subversion: 3,
 							initialized_at: new Date(),
 							foundation_name: foundation_name,
 							namespace: namespace
 						},
 						defaults: {
 							height: 50,
-							width: 200,
+							width: 400,
 							heading: namespace,
 							message: '[no message supplied]',
 							classes: namespace,
-							fade_in_duration: 100,
-							fade_out_duration: 100,
-							slide_in_duration: 300,
-							slide_out_duration: 300,
 							autoclose_delay: 0,
-							close_on_click: true,
-							trigger: document.body
+							close_on_click: false,
+							close_on_esc: false,
+							use_close_button: true,
+							trigger: window.document.body,
+							pivot: null
 						},
 						collection: collection,
 						collection_index: collection.length,
@@ -81,8 +84,18 @@
 							this.guid = new_id;
 							return this.guid;
 						},
+						set_pivot: function( parcel ){
+							var	trigger = parcel.options.trigger,
+									defaults = parcel.defaults.pivot,
+									position = { left: defaults[ 0 ], top: defaults[ 1 ] };
+							
+							if ( trigger )
+								position = ( ! trigger instanceof jQuery ? $( trigger ) : trigger ).position();
+							
+							return [ position.left, position.top ];
+						},
 						repack_options: function( options ){
-							/* switch on typeof the options passed in on the initial dailog 
+							/* switch on typeof the options passed in on the initial dialog 
 							 * call.  This should be either: 
 							 * string: Just fire a no-frills dialog and use this as the message
 							 * array[ strings ]: no-frills dialog. array values in a list
@@ -132,16 +145,16 @@
 							 *							contents of LI elements of an unordered list.
 							 *		before_load( fn( dialog ){ callback process } ): fn, 
 							 *						callback function fired between initialization and the
-							 *						creation of the contents of the dailog respectively
+							 *						creation of the contents of the dialog respectively
 							 *						caller `this` = dialog object
-							 *		after_load( contents, dailog ): fn, callback function fired between the creation of 
+							 *		after_load( contents, dialog ): fn, callback function fired between the creation of 
 							 *						the contents of the dialog and the show dialog animation
-							 *						caller `this`: dailog contents container
+							 *						caller `this`: dialog contents container
 							 *		before_show( fn( dialog ){ callback process } ): fn
 							 *						callback function fired at the same time as the 
 							 *						previous callback, after_load.  An alias
-							 *						caller `this`: dailog object
-							 *		after_show( fn( dailog ){ callback process } ): fn
+							 *						caller `this`: dialog object
+							 *		after_show( fn( dialog ){ callback process } ): fn
 							 *						callback function fired at the start of the time 
 							 *						between the showing of the dialog component and user 
 							 *						interaction
@@ -186,15 +199,12 @@
 							 }
 							 
 							 rebuild.heading = choose( options.heading, rebuild.heading );
-							 rebuild.width = choose( options.heading, rebuild.width );
+							 rebuild.width = choose( options.width, rebuild.width );
 							 rebuild.height = choose( options.height, rebuild.height );
 							 rebuild.autoclose_delay = choose( options.autoclose_delay, rebuild.autoclose_delay );
-							 rebuild.fade_in_duration = choose( options.fade_in_duration, rebuild.fade_in_duration );
-							 rebuild.fade_out_duration = choose( options.fade_out_duration, rebuild.fade_out_duration );
-							 rebuild.slide_in_duration = choose( options.slide_in_duration, rebuild.slide_in_duration );
-							 rebuild.slide_out_duration = choose( options.slide_out_duration, rebuild.slide_out_duration );
 							 rebuild.close_on_click = choose( options.close_on_click, rebuild.close_on_click );
 							 rebuild.trigger = choose( options.trigger, rebuild.trigger );
+							 rebuild.pivot = choose( options.pivot, rebuild.pivot );
 							 
 							 rebuild.classes += ' ' + choose( options.classes, '' );
 							 rebuild.classes += ' ' + choose( classes, '' );
@@ -209,6 +219,8 @@
 							 rebuild.after_hide = choose( options.after_hide, null );
 							 rebuild.before_destroy = choose( options.before_destroy, null );
 							 rebuild.after_destroy = choose( options.after_destroy, null );
+							 
+							 rebuild.use_close_button = options.use_close_button === false ? false : true;
 							 
 							 rebuild.buttons = choose( options.buttons, [] );
 							 
@@ -243,8 +255,6 @@
 									eval_close_string = blueprint.api_close,
 									on_click = element.onclick;
 						
-							console.log( should_close );
-							
 							if ( should_close && eval_close_string ){
 								element.onclick = function(){
 									eval( eval_close_string );
@@ -284,33 +294,33 @@
 							return this.contents.innerHTML;
 						},
 						create_structure: function( fn ){
-							var	dailog = this,
+							var	dialog = this,
 									contents = dialog.contents,
 									id = dialog.guid,
 									callback = ( fn ) ? fn : null;
 							
-							if ( this.options.before_create )
-								this.options.before_create.call( dialog, contents, dialog );
+							if ( dialog.options.before_create )
+								dialog.options.before_create.call( dialog, contents, dialog );
 						
-							this.mask.setAttribute( 'id', id + '_mask' );
-							this.frame.setAttribute( 'id', id + '_frame' );
-							this.close_button.setAttribute( 'id', id + '_close_button' );
-							this.contents.setAttribute( 'id', id );
-							this.footer.setAttribute( 'id', id + '_footer' );
-							this.heading.setAttribute( 'id', id + '_heading' );
+							dialog.mask.setAttribute( 'id', id + '_mask' );
+							dialog.frame.setAttribute( 'id', id + '_frame' );
+							dialog.close_button.setAttribute( 'id', id + '_close_button' );
+							dialog.contents.setAttribute( 'id', id );
+							dialog.footer.setAttribute( 'id', id + '_footer' );
+							dialog.heading.setAttribute( 'id', id + '_heading' );
 
-							this.mask.setAttribute( 'class', this.options.classes );
+							dialog.mask.setAttribute( 'class', dialog.options.classes );
 
-							this.close_button.innerHTML = 'X';
+							dialog.close_button.innerHTML = 'X';
 							
-							this.frame.appendChild( this.close_button );
-							this.frame.appendChild( this.heading );
-							this.frame.appendChild( this.contents );
-							this.frame.appendChild( this.footer );
-							this.mask.appendChild( this.frame );
+							dialog.frame.appendChild( dialog.close_button );
+							dialog.frame.appendChild( dialog.heading );
+							dialog.frame.appendChild( dialog.contents );
+							dialog.frame.appendChild( dialog.footer );
+							dialog.mask.appendChild( dialog.frame );
 							
 							if ( global.document.body ){
-								global.document.body.appendChild( this.mask );
+								global.document.body.appendChild( dialog.mask );
 							} else {
 								throw new Error( 'Document doesn\'t appear to be fully loaded, can\'t attach the dialog' );
 							}
@@ -323,8 +333,31 @@
 						},
 						load_contents: function( fn ){
 							var	dialog = this,
+									options = dialog.options,
 									contents = dialog.contents;
+							
+							/* if a before_load function is supplied fire it now */
+							if ( options.before_load )
+								options.before_load.call( dialog, contents, dialog ); 
+						
+							/* display the message supplied */
+							$( contents )
+								.html( '<p>' + options.message + '</p>' ); 
+
+							/* if options.url is set, then we're loading external content 
+							 * through the use of the JQuery.load function
+							 */
+							if ( options.url ){ /* test for a non-empty url value */
+								contents.load( options.url, function( response, status, xhr ){ /* load */
+									if ( options.message ){ /* if also a message, tack it above the content */
+										contents.before( '<p>' + options.message + '</p>' );
+									}
 									
+									if ( options.after_load ){
+										options.after_load.call( dialog, response, contents, dialog );
+									}
+								});									
+							}	
 						},
 						set_buttons: function( button_array ){
 							var step = -1, /* an initial step value */
@@ -332,12 +365,12 @@
 									settings = {}, /* working settings */
 									close_dialog = function(){ /* handler to close the dialog */
 											/* call the dialog.close method and pass any on_close handlers */
-											dialog.close( dialog.on_close ? dialog.on_close : null ) 
-										},
+										dialog.close( dialog.on_close ? dialog.on_close : null );
+									},
 									create_button = function( settings, container, dialog ){
 										var button = {}, /* working element reference */
 												click_handler = function(){ /* group functions within */
-													if ( settings.click ) settings.click.call( this, this.value, dialog.contents, dialog );
+													if ( settings.click ) settings.click.call( this, this, dialog.contents, dialog );
 													if ( settings.autoclose !== false ) close_dialog();
 												};
 										
@@ -410,12 +443,15 @@
 							 * array and create a button for each 
 							 */
 							if ( typeof button_array === 'object' && button_array.length ){	
+								if ( dialog.options.use_close_button === false ) 
+									dialog.close_button.style.display = 'none';
+									
 							  while ( settings = button_array[ ++step ] ){ /* move to the next button */
 							  	create_button( settings, this.footer, dialog ); /* create with settings */
 							  } 
 							} else { /* no buttons were defined, so we'll make the default `OK` button */
 								create_button({ label: 'OK', click: close_dialog }, this.footer, dialog );
-							  this.close_button.style.display = 'none'; /* hide the circle X button */
+							  dialog.close_button.style.display = 'none'; /* hide the circle X button */
 							}
 						},
 						arrange_on_top: function(){
@@ -442,24 +478,63 @@
 						},
 						show: function( fn ){
 							var	dialog = this,
+									options = dialog.options,
 									mask = $( dialog.mask ),
 									frame = $( dialog.frame ),
 									contents = dialog.contents,
-									slide = dialog.options.slide_in_duration,
-									fade = dialog.options.fade_in_duration,
-									callback = ( fn ) ? fn : null,
-									autoclose = '';
+									choose_pivot = function( trigger, pivot ){
+										var offset = {};
+										
+										if ( pivot ) return pivot;
+										
+										offset = ( trigger instanceof jQuery ) ? trigger.offset() : $( trigger ).offset();
+										return [ offset.left, offset.top ];
+									},
+									pivot = choose_pivot( options.trigger, options.pivot ),
+									css_definition = {
+										height: 0,
+										width: 0,
+										opacity: 0,
+										left: pivot[ 0 ] + 'px',
+										top: ( pivot[ 1 ] - 20 ) + 'px'
+									},
+									animation = {
+										height: options.height,
+										width: options.width,
+										opacity: 1,
+										left: ( $( document ).width() / 2 ) - ( options.width / 2 ),
+										top: 50
+									},
+									autoclose = '',
+									callback = fn;
+							
+							/* record the pivot position so `close()` can use it */
+							dialog.options.pivot = pivot;
+							
+							/* if exists, call the before_show callback */
+							if ( options.before_show )
+								options.before_show.call( dialog, contents, dialog );
+							
+							mask.show();
 									
-							if ( dialog.options.before_show )
-								dialog.options.before_show.call( dialog, contents, dialog );
-								
-							mask.fadeIn( fade, function(){
-								frame.animate({ top: 0 }, slide, function(){
-									if ( dialog.options.after_show )
-										dialog.options.after_show.call( dialog, contents, dialog );
+							frame /* select the content area of the dialog box */
+								.find( 'h1, div, footer, a' ) /* select it's children */
+								.css( 'visibility', 'hidden' ) /* hide them from view */
+								.css( 'opacity', 0 ); /* set the opacity to 0 */
+							
+							frame /* select the content area of the dialog box */
+								.css( css_definition ) /* assign a starting position */
+								.animate( animation, 400, 'swing', function(){ /* animate */
+									$( this ) /* select the content area of the dialog box */
+										.find( 'h1, div, footer, a' ) /* select it's children */
+										.css( 'visibility', 'visible' ) /* make the children visible */
+										.animate({ opacity: 1 }, 200, 'swing' ); /* fade them in */
 									
-									if ( callback )
-										callback.call( dialog, contents, dialog );
+									frame /* select the content area of the dialog box */
+										.css( 'height', 'auto' ); /* allow it to autosize */
+									
+									if ( options.after_show )
+										options.after_show.call( dialog, contents, dialog );
 										
 									/* create a timeout to autoclose the dialog */
 									if ( dialog.options.autoclose_delay > 0 ){
@@ -473,34 +548,44 @@
 										autoclose += '[' + dialog.collection_index + ']';
 										autoclose += '.close();'
 										
-										setTimeout( autoclose, dialog.options.autoclose_delay );
+										setTimeout( autoclose, dialog.options.autoclose_delay );	
 									}	
-								});
-							});
+									
+									if ( callback )
+										callback.call( dialog, frame, dialog );
+							});	
 						},
 						hide: function( fn ){
 							var	dialog = this,
-									mask = $( dialog.mask ),
+									options = dialog.options,
 									frame = $( dialog.frame ),
-									contents = dialog.contents,
-									slide = dialog.options.slide_out_duration,
-									fade = dialog.options.fade_out_duration,
-									callback = ( fn ) ? fn : null;
-							
-							/* call any before_hide functions */
-							if ( options.before_hide ) 
-								options.before_hide.call( dialog, contents, dialog );
-							
-							/* hide the dialog */
-							frame.animate({ top: '-3000px' }, slide, function(){
-								mask.fadeOut( fade, function(){
+									mask = $( dialog.mask ),
+									animation = {
+										'height': 0,
+										'width': 0,
+										'opacity': 0,
+										'left': options.pivot[ 0 ],
+										'top': options.pivot[ 1 ] - 20
+									},
+									callback = fn;
+
+							if ( options.before_hide )
+								options.before_hide.call( dialog, frame, dialog );
+
+							frame
+								.find( 'h1, div, footer, a' ) /* select it's children */
+								.css( 'visibility', 'hidden' ) /* make the children visible */
+
+							frame
+								.animate( animation, 300, 'swing', function(){
 									if ( options.after_hide )
-										options.after_hide.call( dialog, contents, dialog );
-										
+										options.after_hide.call( dialog, frame, dialog );
+									
 									if ( callback )
-										callback.call( dialog, contents, dialog );
+										callback.call( dialog, frame, dialog );
+										
+									mask.hide();
 								});
-							});
 						},
 						destroy: function( fn ){
 							var	dialog = this,
@@ -532,13 +617,14 @@
 							});
 						},
 						initialize: function( options, classes, collection ){
-							var arguments = {};
+							var dialog = this,
+									arguments = {};
 									
 							/* initialize the guid */
-							this.guid = this.guid( 32 );
+							dialog.guid = dialog.guid( 32 );
 							
 							if ( options.id ){
-								this.guid = options.id
+								dialog.guid = options.id
 									.replace( /[^a-zA-Z 0-9]+/g, '_' )
 									.replace( /\s/g, '_' );
 							}
@@ -546,57 +632,62 @@
 							/* quality check the options blueprint */
 							arguments = {
 								options: options,
-								defaults: this.defaults,
+								defaults: dialog.defaults,
 								classes: classes
 							};
-							options = this.options = this.repack_options( arguments );
+							options = dialog.options = dialog.repack_options( arguments );
 							
 							/* create an api close */
 							arguments = {
-								foundation_name: this.about.foundation_name,
-								namespace: this.about.namespace,
-								collection_index: this.collection_index
+								foundation_name: dialog.about.foundation_name,
+								namespace: dialog.about.namespace,
+								collection_index: dialog.collection_index
 							};
 							
 							/* set the close on click of the body */
 							arguments = {
-								api_close: this.create_api_close_string( arguments ),
+								api_close: dialog.create_api_close_string( arguments ),
 								should_close_on_click: options.close_on_click,
-								element: global.document.body
+								element: dialog.mask
 							};
-							this.set_close_on_click( arguments );
+							dialog.set_close_on_click( arguments );
 							
 							/* create the structure */
-							this.create_structure();
+							dialog.create_structure();
 							
 							/* create / set buttons */
-							this.set_buttons( this.options.buttons );
+							dialog.set_buttons( dialog.options.buttons );
 							
 							/* set the heading */
-							this.header( this.options.heading );
+							dialog.header( dialog.options.heading );
 							
 							/* set the message */
-							this.message( this.options.message );
+							dialog.message( dialog.options.message );
 							
 							/* move the dialog to the top of the z-index */
-							this.arrange_on_top();
+							dialog.arrange_on_top();
+							
+							/* set the contents */
+							dialog.load_contents();
 							
 							/* show the dialog */
-							this.show();
+							dialog.show();
 							
 							/* add dialog object to collection */
-							collection.push( this );
+							collection.push( dialog );
 							
-							return this;
+							return dialog;
 						},
 						slim: function(){
-							delete this.initialize;
-							delete this.create_structure;
-							delete this.repack_options;
-							delete this.defaults;
-							delete this.set_buttons;
-							delete this.slim;
-							delete this.show;
+							var dialog = this;
+							
+							delete dialog.initialize;
+							delete dialog.create_structure;
+							delete dialog.repack_options;
+							delete dialog.defaults;
+							delete dialog.set_buttons;
+							delete dialog.slim;
+							delete dialog.show;
 						}
 					};
 			
@@ -611,39 +702,4 @@
 	};
 }( 'dialog', 'bryant', typeof window === 'undefined' ? this : window )); /* call Òanonymous ÄnÓ and pass in the ÒwindowÓ object */
 
-window.onload = function(){
-	
-	options = {
-	//	id: 'myDialog',
-	//	fade_in_duration: 200,
-	//	slide_in_duration: 500,
-	//	fade_out_duration: 200,
-	//	slide_out_duration: 500,
-		trigger: document.body,
-		heading: 'My Dialog',
-		message: 'Your settings have been saved',	
-		url: 'my_test_page.php?val1=1,val2=2',
-		close_on_click: true,
-		before_create: function( contents, dialog ){ console.log( 'about to create ' + dialog.options.heading ); },
-		after_create: function( contents, dialog ){ console.log( 'done creating ' + dialog.options.heading ); },
-		before_load: function( contents, dialog ){ console.log( 'about to load ' + dialog.options.url ); },
-		after_load: function( contents, dialog, data ) { console.log( 'done loading ' + dialog.options.url ); },
-		before_show: function( contents, dialog ){ console.log( 'about to show ' + dialog.options.heading ); },
-		after_show: function( contents, dialog ){ console.log( 'done showing ' + dialog.options.heading ); },
-		before_hide: function( contents, dialog ){ console.log( 'about to hide ' + dialog.options.heading ); },
-		after_hide: function( contents, dailog ){ console.log( 'done hiding ' + dialog.options.heading ); },
-		before_destroy: function( contents, dialog ){ console.log( 'about to destroy ' + dialog.options.heading ); },
-		after_destroy: function(){ console.log( 'done destroying' ); },
-		autoclose_delay: 3000
-	},
-	my_dialog = function(){
-		var dailog = {};
-		
-		dialog = window.bryant.dialog( options );
-		console.dir( dialog );
-	}
-	
-	window.bryant.dialog( 'Dailog 1' );
-	
-	setTimeout( my_dialog, 500 );			
-};
+
