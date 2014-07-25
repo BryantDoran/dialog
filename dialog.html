@@ -1,0 +1,65 @@
+<!doctype html>
+<html>
+	<head>
+		<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.5.2/jquery.min.js"></script>
+		<script>
+			window[ 'bryant' ] = {};
+		</script>
+		<script src="dialog.js"></script>
+		<script>
+			window.onload = function(){
+	
+			options = {
+			//	id: 'myDialog',
+			//	trigger: $( 'button#test' ),
+			//	pivot: [ 600, 400 ],
+				heading: 'My Dialog',
+				message: 'Your settings have been saved',	
+			//	url: 'my_test_page.php?val1=1,val2=2',
+			//	close_on_click: true,
+				close_on_esc: true,
+				before_create: function( contents, dialog ){ if( window.console ) console.log( 'about to create ' + dialog.options.heading ); },
+				after_create: function( contents, dialog ){ if( window.console ) console.log( 'done creating ' + dialog.options.heading ); },
+				before_load: function( contents, dialog ){ if( window.console ) console.log( 'about to load ' + dialog.options.url ); },
+				after_load: function( contents, dialog, data ){ if( window.console ) console.log( 'done loading ' + dialog.options.url ); },
+				before_show: function( contents, dialog ){ if( window.console ) console.log( 'about to show ' + dialog.options.heading ); },
+				after_show: function( contents, dialog ){ if( window.console ) console.log( 'done showing ' + dialog.options.heading ); },
+				before_hide: function( contents, dialog ){ if( window.console ) console.log( 'about to hide ' + dialog.options.heading ); },
+				after_hide: function( contents, dialog ){ if( window.console ) console.log( 'done hiding ' + dialog.options.heading ); },
+				before_destroy: function( contents, dialog ){ if( window.console ) console.log( 'about to destroy ' + dialog.options.heading ); },
+				after_destroy: function(){ if( window.console ) console.log( 'done destroying' ); },
+				autoclose_delay: 2000,
+				buttons: [
+					{ label: 'ok',
+						click: function( button, contents, dialog ){
+							alert( button.value );
+						} 
+					},
+					{ label: 'cancel' }			
+				]
+			},
+			my_dialog = function(){
+				var dialog = {};
+				
+				dialog = bryant.dialog( options );
+				console.dir( dialog );
+			}
+			
+			$( 'button#test' )
+				.click( function(){
+					options.trigger = this;
+					bryant.dialog( options );		
+				});
+			
+			
+			setTimeout( my_dialog, 500 );			
+		};
+		</script>
+		<link href="dialog.css" rel="stylesheet" type="text/css" />
+	</head>
+	<body>
+		<div id="test">
+			<button id="test">Tester</button>
+		</div>
+	</body>
+</html>
