@@ -2,16 +2,6 @@
  * namespace String: to call, attached to foundation
  * foundation object: the object to append
  */
-( function( namespace, foundation ){ 
-	foundation[ namespace ] = {
-		dialog: ''
-	};	
-}( 'bryant', typeof window === 'undefined' ? this : window ) ); /* call Òanonymous ÄnÓ and pass in the ÒwindowÓ object */
-
-/*  Än( ÒnamespaceÓ, ÒglobalÓ )
- * namespace String: to call, attached to foundation
- * foundation object: the object to append
- */
 ( function( namespace, foundation, global ){ 
 	var collection = namespace + 's',
 			foundation_name = foundation,
@@ -43,7 +33,7 @@
 					dialog = {
 						about: {
 							author: 'Bryant Fusco',
-							version: 1,
+							version: 2,
 							subversion: 3,
 							initialized_at: new Date(),
 							foundation_name: foundation_name,
@@ -60,7 +50,8 @@
 							close_on_esc: false,
 							use_close_button: true,
 							trigger: window.document.body,
-							pivot: null
+							pivot: null,
+							url: ''
 						},
 						collection: collection,
 						collection_index: collection.length,
@@ -87,12 +78,26 @@
 						set_pivot: function( parcel ){
 							var	trigger = parcel.options.trigger,
 									defaults = parcel.defaults.pivot,
-									position = { left: defaults[ 0 ], top: defaults[ 1 ] };
+									position = { left: defaults[ 0 ], top: defaults[ 1 ] },
+									scroll_top = 0; 
 							
-							if ( trigger )
-								position = ( ! trigger instanceof jQuery ? $( trigger ) : trigger ).position();
+							/* 1. If no `trigger` element is supplied, animate from 0,0
+							 * 2. If the trigger is supplied as a string, convert it to a jquery
+							 * instance of the element and then use it's offset to set the
+							 * animate from.
+							 * 3. If the trigger is supplied as a jQuery instance, use the offset
+							 * to set the animate from.
+							 * NOTE: JQuery.offset() and JQuery.position() are set on the load of 
+							 * document and don't take into account scrolling.  Hence we have to 
+							 * determine the scroll top to shift the Y position setting
+							 */
 							
-							return [ position.left, position.top ];
+							if ( trigger ){
+								trigger = ( ! trigger instanceof jQuery ? $( trigger ) : trigger );
+								position = trigger.offset(); 
+								scroll_top = trigger.scrollTop();
+							}
+							return [ position.left, position.top - scroll_top ];
 						},
 						repack_options: function( options ){
 							/* switch on typeof the options passed in on the initial dialog 
@@ -205,6 +210,7 @@
 							 rebuild.close_on_click = choose( options.close_on_click, rebuild.close_on_click );
 							 rebuild.trigger = choose( options.trigger, rebuild.trigger );
 							 rebuild.pivot = choose( options.pivot, rebuild.pivot );
+							 rebuild.url = choose( options.url, rebuild.url );
 							 
 							 rebuild.classes += ' ' + choose( options.classes, '' );
 							 rebuild.classes += ' ' + choose( classes, '' );
@@ -266,9 +272,9 @@
 						},
 						height: function( value ){
 							if ( value ) 
-								$( this.mask ).css( 'height', value + 'px' );
+								$( this.frame ).css( 'height', value + 'px' );
 								
-							return parseInt( $( this.mask ).css( 'height' ), 10 );
+							return parseInt( $( this.frame ).css( 'height' ), 10 );
 						},
 						width: function( value ){
 							if( value )
@@ -348,11 +354,7 @@
 							 * through the use of the JQuery.load function
 							 */
 							if ( options.url ){ /* test for a non-empty url value */
-								contents.load( options.url, function( response, status, xhr ){ /* load */
-									if ( options.message ){ /* if also a message, tack it above the content */
-										contents.before( '<p>' + options.message + '</p>' );
-									}
-									
+								$( contents ).load( options.url, function( response, status, xhr ){ /* load */
 									if ( options.after_load ){
 										options.after_load.call( dialog, response, contents, dialog );
 									}
@@ -370,8 +372,21 @@
 									create_button = function( settings, container, dialog ){
 										var button = {}, /* working element reference */
 												click_handler = function(){ /* group functions within */
-													if ( settings.click ) settings.click.call( this, this, dialog.contents, dialog );
-													if ( settings.autoclose !== false ) close_dialog();
+													var user_return = true;
+													
+													/* In order to inject an interrupt process in the dialog, say
+													 * when the dialog has an error on the form and we don't want 
+													 * the dialog to go away until the user has made the necessary
+													 * corrections, we look for a return value for the supplied 
+													 * click handler.  If the click handler returns true and the 
+													 * the autoclose property for the button is true we shut down
+													 * the dialog.  Otherwise if the value returns as false, then
+													 * we hold off on closing the dialog 
+													 */		
+													if ( settings.click ) 
+														user_return = settings.click.call( this, this, dialog.contents, dialog );
+
+													if ( user_return !== false && settings.autoclose !== false ) close_dialog();
 												};
 										
 										settings.id = settings.id ? settings.id : dialog.guid + '_' + settings.label;
@@ -391,6 +406,7 @@
 								  	 */								  	
 								  	button = { /* reassign the variable `button` */
 								  		reference: button, /* create a reference to the html button */
+								  		can_close: true,
 								  		value: function( new_value ){ /* set / get button value */
 								  			if ( new_value ) this.reference.value = new_value;
 								  			return this.reference.value;
@@ -427,7 +443,7 @@
 								  			$( this.reference ) /* select the button through the reference */
 								  				.hover( fn_over ? fn_over : null, fn_out ? fn_out : null );
 								  		}								  		
-								  	}
+								  	}	
 								  	
 								  	/* handle a default of disabled */
 								  	if ( settings.disabled === true )	button.disable();
@@ -483,26 +499,34 @@
 									frame = $( dialog.frame ),
 									contents = dialog.contents,
 									choose_pivot = function( trigger, pivot ){
-										var offset = {};
+										var offset = {},
+												scroll_top = 0;
 										
 										if ( pivot ) return pivot;
 										
-										offset = ( trigger instanceof jQuery ) ? trigger.offset() : $( trigger ).offset();
+										if ( trigger )
+											offset = ( trigger instanceof jQuery ) ? trigger.offset() : $( trigger ).offset();
+											
 										return [ offset.left, offset.top ];
 									},
 									pivot = choose_pivot( options.trigger, options.pivot ),
+									left_position = function( frame_width ){
+										var	width = parseInt( frame_width, 10 ) / 2,
+												document_center = $( document ).width() / 2;
+										return ( document_center - width ) + 'px';
+									},
 									css_definition = {
 										height: 0,
 										width: 0,
 										opacity: 0,
-										left: pivot[ 0 ] + 'px',
-										top: ( pivot[ 1 ] - 20 ) + 'px'
+										left: ( ( pivot[ 0 ] + 10 ) - $( window ).scrollLeft() ) + 'px',
+										top: ( ( pivot[ 1 ] - 20 ) - $( window ).scrollTop() ) + 'px'
 									},
 									animation = {
 										height: options.height,
 										width: options.width,
 										opacity: 1,
-										left: ( $( document ).width() / 2 ) - ( options.width / 2 ),
+										left: left_position( options.width ),
 										top: 50
 									},
 									autoclose = '',
@@ -518,7 +542,7 @@
 							mask.show();
 									
 							frame /* select the content area of the dialog box */
-								.find( 'h1, div, footer, a' ) /* select it's children */
+								.find( '>h1, >div, >footer, >a' )
 								.css( 'visibility', 'hidden' ) /* hide them from view */
 								.css( 'opacity', 0 ); /* set the opacity to 0 */
 							
@@ -526,12 +550,12 @@
 								.css( css_definition ) /* assign a starting position */
 								.animate( animation, 400, 'swing', function(){ /* animate */
 									$( this ) /* select the content area of the dialog box */
-										.find( 'h1, div, footer, a' ) /* select it's children */
-										.css( 'visibility', 'visible' ) /* make the children visible */
-										.animate({ opacity: 1 }, 200, 'swing' ); /* fade them in */
+								  	.find( '>h1, >div, >footer, >a' ) /* select it's children */
+								  	.css( 'visibility', 'visible' ) /* make the children visible */
+								  	.animate({ opacity: 1 }, 200, 'swing' ); /* fade them in */
 									
 									frame /* select the content area of the dialog box */
-										.css( 'height', 'auto' ); /* allow it to autosize */
+										.css( 'height', 'auto' );
 									
 									if ( options.after_show )
 										options.after_show.call( dialog, contents, dialog );
@@ -550,7 +574,92 @@
 										
 										setTimeout( autoclose, dialog.options.autoclose_delay );	
 									}	
-									
+							
+							/* make draggable */		
+							frame
+							 .mousedown( function( down_event ){
+							 	if ( frame.attr( 'id' ) !== $( down_event.target ).attr( 'id' ) ) return;
+							 
+							 	var element = this, 
+							 			target = $( down_event.target ),
+							 			position = target.offset(),
+							 			offset = [
+							 				down_event.pageX - ( parseInt( position.left, 10 ) - $( window ).scrollLeft() ),
+							 				down_event.pageY - ( parseInt( position.top, 10 ) - $( window ).scrollTop() )
+							 			];
+							 			
+							 	/* collect and store what we need for the 
+							 	 * move function to operate and attach it 
+							 	 * to the element.
+							 	 */
+							 	element.held = { /* attach to the element */
+							 		target: target, /* a reference to the jQuery instance */
+							 		offset: offset /* the offset from the top, left of the element */
+							 	}	
+							 	
+							 	$( document ) /* select the document */
+							 		.mousemove( function( move_event ){ /* attach a mouse move handler */
+							 			var css; 
+							 			if ( element.held ){ /* test for the held property */
+							 				css = { /* create a parcel with the positional information */
+							 					left: ( move_event.pageX - element.held.offset[ 0 ] ) + 'px',
+							 					top: ( move_event.pageY - element.held.offset[ 1 ] ) + 'px',
+							 					cursor: 'move'
+							 				}
+							 				element.held.target.css( css ); /* move the element */
+							 			}
+							 			delete css;
+							 		})
+							 		.mouseup( function( up_event ){	/* attach a mouseup handler */	
+							 			var	css = { cursor: 'default' },
+							 					box = {},							 					
+							 					scroll = {
+							 						left: $( window ).scrollLeft(), 
+							 						top: $( window ).scrollTop() 
+							 					},
+							 					view = {
+							 						width: $( window ).width(), 
+							 						height: $( window ).height() 
+							 					},
+							 					pixelate = function( value ){
+							 						return value + 'px';
+							 					};
+							 			
+							 			if ( element.held ){ /* test fo the held property */
+							 				box.width = element.held.target.width();
+							 				box.height = element.held.target.height();
+							 				box.top = element.held.target.offset().top; /* top */
+							 				box.left = element.held.target.offset().left; /* left */
+							 				box.right = box.left + box.width; /* right */
+							 				box.bottom = box.top + box.height; /* bottom */
+							 				box.bottom_pad = parseInt( element.held.target.css( 'padding-bottom' ), 10 );
+							 				box.right_pad = parseInt( element.held.target.css( 'padding-right' ), 10 );
+							 				
+							 				/* constrain to view on the y-axis */
+							 				if ( box.top <= 20 + scroll.top )
+							 					css.top = pixelate( 20 );
+							 				else if ( box.bottom >= view.height + scroll.top )
+							 					css.top = pixelate( view.height - box.height - box.bottom_pad - 40 );
+							 				else	
+							 					css.top = pixelate( box.top - scroll.top );
+							 				
+							 				/* constrain to view on the x-axis */
+							 				if ( box.left <= 20 + scroll.left )
+							 					css.left = pixelate( 20 );
+							 				else if ( box.right >= view.width + scroll.left )
+							 					css.left = pixelate( view.width - box.width - box.right_pad - 40 );
+							 				else
+							 					css.left = pixelate( box.left - scroll.left );
+							 				
+							 				element.held.target.css( css );
+							 				delete scroll;
+							 				delete view;
+							 				delete box;
+							 				delete element.held; /* delete it */
+							 			}
+							 		});
+							 });
+																	
 									if ( callback )
 										callback.call( dialog, frame, dialog );
 							});	
@@ -564,8 +673,8 @@
 										'height': 0,
 										'width': 0,
 										'opacity': 0,
-										'left': options.pivot[ 0 ],
-										'top': options.pivot[ 1 ] - 20
+										'left': ( options.pivot[ 0 ] + 10 ) - $( window ).scrollLeft(),
+										'top': ( options.pivot[ 1 ] - 20 ) - $( window ).scrollTop()
 									},
 									callback = fn;
 
@@ -573,7 +682,7 @@
 								options.before_hide.call( dialog, frame, dialog );
 
 							frame
-								.find( 'h1, div, footer, a' ) /* select it's children */
+								.children()
 								.css( 'visibility', 'hidden' ) /* make the children visible */
 
 							frame
@@ -701,5 +810,4 @@
 		return null;
 	};
 }( 'dialog', 'bryant', typeof window === 'undefined' ? this : window )); /* call Òanonymous ÄnÓ and pass in the ÒwindowÓ object */
-
 
