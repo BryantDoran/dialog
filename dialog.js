@@ -34,7 +34,7 @@
 						about: {
 							author: 'Bryant Fusco',
 							version: 2,
-							subversion: 3,
+							subversion: 4,
 							initialized_at: new Date(),
 							foundation_name: foundation_name,
 							namespace: namespace
@@ -356,7 +356,7 @@
 							if ( options.url ){ /* test for a non-empty url value */
 								$( contents ).load( options.url, function( response, status, xhr ){ /* load */
 									if ( options.after_load ){
-										options.after_load.call( dialog, response, contents, dialog );
+										options.after_load.call( dialog, contents, dialog, response );
 									}
 								});									
 							}	
@@ -504,8 +504,10 @@
 										
 										if ( pivot ) return pivot;
 										
-										if ( trigger )
-											offset = ( trigger instanceof jQuery ) ? trigger.offset() : $( trigger ).offset();
+										element = ( trigger instanceof jQuery ) ? trigger : $( trigger );
+										offset = element.offset();
+										offset.left += element.width() / 2;
+										offset.top += element.height() / 2;
 											
 										return [ offset.left, offset.top ];
 									},
